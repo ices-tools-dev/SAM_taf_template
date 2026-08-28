@@ -82,3 +82,5 @@ fit$opt$convergence # zero
 fit$opt$message # "relative convergence (4)"
 
 saveRDS(fit, file = "model/assessment/fit.rds")
+
+#saveRDS(retro_fit,file="model/assessment/retro_fit.rds")
