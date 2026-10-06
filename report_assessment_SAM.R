@@ -19,16 +19,13 @@ load("model/assessment/fit.rds", verbose = TRUE)
 load("model/assessment/retro_fit.rds", verbose = TRUE)
 
 # leave one out runs
-
 load("model/assessment/leaveoneout.RData")
-
 
 # load residuals
 load("model/assessment/residuals.RData")
 
 #load data
 load("model/assessment/data.RData")
-
 
 #define colours
 colours<- palette.colors(palette="Okabe_Ito")

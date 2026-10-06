@@ -2,8 +2,8 @@
 
 # 
 
-# Before: data/data.stock.rds
-# After: model/assessment/fit.rds
+# Before: 
+# After: model/assessment/fit.rds etc
 
 rm(list=ls())
 graphics.off()
