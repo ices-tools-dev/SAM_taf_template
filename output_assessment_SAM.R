@@ -59,7 +59,7 @@ if (max(row.names(tab.summary)) > max(row.names(catab))) {
 }
 
 
-mohns_rho <- mohn(retro_fit)
+mohns_rho <- mohn(RETRO)
 mohns_rho <- as.data.frame(t(mohns_rho))
 
 ## Write tables to output directory
