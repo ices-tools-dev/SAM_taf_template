@@ -7,7 +7,7 @@
 
 # Libraries
 library(TAF)
-taf.library(stockassessment)
+library(stockassessment)
 
 # Directories
 mkdir("report/assessment")
@@ -180,12 +180,14 @@ dev.off()
 # F at age
 faytab <- faytable(fit)
 ftab<-round(faytab,3)
-write.taf(ftab,"F_SAM.csv", dir="report/assessment", row.names=TRUE)
+ftab <- data.frame(Year = rownames(ftab), ftab, check.names = FALSE)
+write.taf(ftab,"F_SAM.csv", dir="report/assessment")
 
 # N at age
 ntab <- ntable(fit)
 ntab <-round(ntab)
-write.taf(ntab,"N_SAM.csv", dir="report/assessment", row.names=TRUE)
+ntab <- data.frame(Year = rownames(ntab), ntab, check.names = FALSE)
+write.taf(ntab,"N_SAM.csv", dir="report/assessment")
 
 # Summary Table
 tsb    <- round(tsbtable(fit))
@@ -194,18 +196,21 @@ tabsummary<- data.frame(summary(fit), tsb)
 tsb<-data.frame(tsb)
 
 colnames(tabsummary)<-c("R", "R_Low","R_High","SSB","SSB_Low","SSB_High","Fbar","Fbar_Low","Fbar_High","TSB","TSB_Low","TSB_High")
-write.taf(tabsummary,"Summary_SAM.csv", dir="report/assessment", row.names=TRUE)
+write.taf(data.frame(Year = rownames(tabsummary), tabsummary),
+          "Summary_SAM.csv", dir="report/assessment")
 
 # summary catch
 catab  <- catchtable(fit)
 colnames(catab) <- c("Catch","Catch_Low", "Catch_High")
 catab<-round(catab)
-write.taf(catab,"Summary_SAM_catch.csv", dir="report/assessment", row.names=TRUE)
+write.taf(data.frame(Year = rownames(catab), catab),
+          "Summary_SAM_catch.csv", dir="report/assessment")
 
 ptab <- partable(fit)
 ptab<-xtab2taf(ptab)
-ptab[,-1]<-round(ptab[,-1],3)
-colnames(ptab)[1]<-" "
+# signif, not round: some parameters, such as catchabilities, are near zero
+ptab[,-1]<-signif(ptab[,-1],3)
+colnames(ptab)[1]<-"Parameter"
 write.taf(ptab,"SAM_model_parameters.csv",dir="report/assessment")
 
 ###########################################################################################################
@@ -322,7 +327,7 @@ if (file.exists("model/assessment/jitter.rds")) {
 write.taf(read.taf("output/assessment/modtab.csv"), "SAM_modeltable.csv",
           dir = "report/assessment")
 qtab <- read.taf("output/assessment/qtab.csv")
-qtab[-1] <- round(qtab[-1], 3)
+qtab[-1] <- signif(qtab[-1], 3)
 write.taf(qtab, "SAM_catchability.csv", dir = "report/assessment")
 
 # Summary as in the advice sheets: Fbar rounded with icesRound

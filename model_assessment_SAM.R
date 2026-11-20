@@ -14,7 +14,7 @@
 #        residuals.rds, procres.rds
 
 library(TAF)
-taf.library(stockassessment)
+library(stockassessment)
 
 mkdir("model/assessment")
 

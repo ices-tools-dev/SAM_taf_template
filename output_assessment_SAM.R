@@ -5,7 +5,7 @@
 
 # Libraries
 library(TAF)
-taf.library(stockassessment)
+library(stockassessment)
 
 # Directories
 mkdir("output/assessment")
@@ -25,7 +25,6 @@ partab <- partable(fit)
 
 # Fs
 fatage <- faytable(fit)
-fatage <- fatage[, -1]
 fatage <- as.data.frame(fatage)
 
 # Ns
@@ -37,7 +36,9 @@ colnames(catab) <- c("Catch", "Catch Low", "Catch High")
 
 
 # Summary Table
-tab.summary <- cbind(as.data.frame(summary(fit)))
+# summary(fit) rounds its values, so the tables are used at full precision
+tab.summary <- as.data.frame(cbind(rectable(fit), ssbtable(fit), fbartable(fit)))
+colnames(tab.summary)[c(1, 4, 7)] <- colnames(summary(fit))[c(1, 4, 7)]
 colnames(tab.summary)[2:3] <- c("R Low","R High")
 colnames(tab.summary)[5:6] <- c("SSB Low","SSB High")
 colnames(tab.summary)[8:9] <- c("Fbar Low","Fbar High")
@@ -57,8 +58,11 @@ if (max(row.names(tab.summary)) > max(row.names(catab))) {
 }
 
 
-mohns_rho <- mohn(RETRO)
-mohns_rho <- as.data.frame(t(mohns_rho))
+# Both lags, as the retro plot in the report uses lag 1 for R and Fbar and
+# lag 0 for SSB
+mohns_rho <- data.frame(lag = c(0, 1),
+                        rbind(mohn(RETRO, lag = 0), mohn(RETRO, lag = 1)),
+                        check.names = FALSE)
 
 # Model table: log-likelihood, number of parameters, AIC
 modtab <- as.data.frame(modeltable(fit))
@@ -71,10 +75,17 @@ qtab_sd <- attr(qtable(fit), "sd")
 qtab_sd <- data.frame(Fleet = rownames(qtab_sd), as.data.frame(qtab_sd),
                       check.names = FALSE)
 
+# Row names as a named first column
+partab <- data.frame(Parameter = rownames(partab), partab, check.names = FALSE)
+tab.summary <- data.frame(Year = rownames(tab.summary), tab.summary,
+                          check.names = FALSE)
+natage <- data.frame(Year = rownames(natage), natage, check.names = FALSE)
+fatage <- data.frame(Year = rownames(fatage), fatage, check.names = FALSE)
+
 ## Write tables to output directory
 write.taf(c("modtab", "qtab", "qtab_sd"), dir = "output/assessment")
 
 write.taf(
   c("partab", "tab.summary", "natage", "fatage", "mohns_rho"),
-  dir = "output/assessment", row.names = TRUE,
+  dir = "output/assessment"
 )

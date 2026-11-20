@@ -6,7 +6,7 @@
 #         survey_<name>.csv, data.stock.rds (data)
 
 library(TAF)
-taf.library(stockassessment)
+library(stockassessment)
 
 mkdir("data")
 
