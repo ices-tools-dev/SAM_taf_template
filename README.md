@@ -135,11 +135,13 @@ flowchart TD
   S3("output_FLStock_SAM.R")
   S4("output_SAG_SAM.R")
   S5("output_ASD_SAM.R")
+  S6("output_qc.R")
   O1[("<b>output/assessment</b><br/>tab_summary, fatage, natage, partab,<br/>mohns_rho, modtab, qtab, qtab_sd")]
   O2[("<b>output/forecast</b><br/>tab_fc_*, catch_options,<br/>ssb_blim_prob, Large_F_range_forecast")]
   O3[("<b>output</b><br/>FLStock objects")]
   O4[("<b>output/sag</b><br/>SAG upload file")]
   O5[("<b>output/asd</b><br/>ASD upload file")]
+  O6[("<b>output/qc</b><br/>DATSU checks of the upload files")]
   M1 --> S1 --> O1
   B --> S2
   M2 --> S2 --> O2
@@ -152,6 +154,8 @@ flowchart TD
   B --> S5
   M1 --> S5
   O2 --> S5 --> O5
+  O4 --> S6
+  O5 --> S6 --> O6
   classDef boot fill:#cfd6e0,stroke:#8a96a8,color:#1f2933
   classDef data fill:#bcd4f0,stroke:#6f95c4,color:#1f2933
   classDef model fill:#b6e0d6,stroke:#5fa596,color:#1f2933
@@ -160,7 +164,7 @@ flowchart TD
   class B boot
   class D data
   class M1,M2 model
-  class O1,O2,O3,O4,O5 output
+  class O1,O2,O3,O4,O5,O6 output
 ```
 
 ### report.R
