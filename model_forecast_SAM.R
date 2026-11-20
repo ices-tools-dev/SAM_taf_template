@@ -19,6 +19,10 @@
 library(TAF)
 library(stockassessment)
 
+# Number of simulations in each forecast: few for a quick test run, more for
+# advice (the forecasts take most of model.R)
+nosim <- 10 # 1000
+
 ## housekeeping
 mkdir("model/forecast")
 
@@ -64,7 +68,6 @@ if (all(diff(Flast3) < 0) | all(diff(Flast3) > 0)) {
 
 # define forecast settings; modify accordingly see: help(forecast)
 
-nosim <- 10000
 year.base <- as.numeric(base.yr)
 ave.years <- max(fit$data$years) + (-4:0) # 5 years here, often 3 years TODO move to top of script as arguments, potentially report on this to the user. - check Sofie forecast script for table of settings
 rec.years <- max(fit$data$years) + (-9:0) # TODO move to top of script as arguments
