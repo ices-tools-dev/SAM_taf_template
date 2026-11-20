@@ -50,6 +50,7 @@ library(TAF)
 install.packages(deps(installed = FALSE),
                  repos = c("https://fishfollower.r-universe.dev",
                            "https://ices-tools-prod.r-universe.dev",
+                           "https://flr.r-universe.dev",
                            "https://cloud.r-project.org"))
 taf.boot()
 source.all()

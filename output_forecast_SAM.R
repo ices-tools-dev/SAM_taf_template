@@ -3,8 +3,6 @@
 ## Before: SAM forecast object in model/forecast
 ## After: forecast results in .txt files in output/forecast
 
-rm(list=ls())
-
 # Libraries
 library(TAF)
 library(stockassessment)
@@ -14,25 +12,27 @@ mkdir("output/forecast")
 
 # load forecast object
 load("model/forecast/forecast.RData", verbose = TRUE)
+load("model/forecast/forecast_F_range.RData", verbose = TRUE)
+FC <- Filter(Negate(is.null), ls.forecast) # scenarios from model_forecast_SAM.R
 
 # load reference points - only Blim needed
-refpts_path <- "boot/data/reference_points/refpts.RData" ## path to the reference points
+refpts_path <- taf.data.path("reference_points.csv") ## path to the reference points
 if (file.exists(refpts_path)) {
-  load(file = refpts_path)
+  Blim <- read.taf(refpts_path)$Blim
 } else {
   ## Reference points input values
-  #Blim =   #just need Blim for this script
+  Blim <- 9000 # PLACEHOLDER, just need Blim for this script
 }
 
 # Settings - years for indexing
-data.yr <- 2025
-assess.yr <- 2026
-advice.yr <- 2027
+data.yr <- max(readRDS("model/assessment/fit.rds")$data$years)
+assess.yr <- data.yr + 1
+advice.yr <- data.yr + 2
 
 # update scenarios that hit SSB targets with results from optimiser (if needed)
 scen_num <- which(grepl(paste0("then SSB(", advice.yr+1, ") = "),
                         names(FC), fixed = TRUE))
-FC[scen_num] <- FC2
+if (exists("FC2")) FC[scen_num] <- FC2
 
 #==================================================================
 # Write out forecast scenario tables
@@ -102,8 +102,10 @@ write.taf(c("ssb_blim_prob"), dir = "output/forecast", row.names = FALSE, quote=
 
 mapIdx <- grepl(pattern = "^Fsq, then FMSY = [.[:digit:]]+$",
                 names(FC))
+# otherwise use the F range from model_forecast_SAM.R
+FCmap <- if (any(mapIdx)) FC[mapIdx] else ls.forecast_F_range
 
-res <- lapply(FC[mapIdx],
+res <- lapply(FCmap,
               function(x)
               {
                 fc_tab <- attr(x, "tab")

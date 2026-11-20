@@ -1,18 +1,25 @@
 ## Extract results of interest, write TAF output tables
 
-## Before:
-## After:
+## Before: model/assessment/fit.rds, boot/data/stock_info.csv
+## After: output/<stock>_FLStock_object_model_estimates.Rdata,
+##        output/<stock>_FLStock_object_input_data.Rdata
 
-rm(list=ls())
-
-library(icesTAF)
+library(TAF)
 library(stockassessment)
 library(FLCore)
 library(FLfse)
 
 
 # load fit
-load("model/assessment/fit.rds", verbose = TRUE)
+fit <- readRDS("model/assessment/fit.rds")
+
+info_path <- taf.data.path("stock_info.csv")
+if (file.exists(info_path)) {
+  stock_code <- read.taf(info_path)$StockCode
+} else {
+  stock_code <- "ple.27.7d" # PLACEHOLDER, the stock code
+}
+file_code <- gsub(".", "_", stock_code, fixed = TRUE)
 
 # ====================================================================
 # make model estimate object
@@ -24,8 +31,8 @@ stock <- SAM2FLStock(fit, catch_estimate=TRUE)
 #                      catch.wt_est=TRUE,m_est=TRUE)
 
 # desc
-stock@desc <- "xxx.27.46a7d3a - FLStock created from SAM model fit. catches = model estimates"
-stock@name <- "xx.27.46a7d3a"
+stock@desc <- paste(stock_code, "- FLStock created from SAM model fit. catches = model estimates")
+stock@name <- stock_code
 
 # set units
 nmes <- names(units(stock))
@@ -34,7 +41,7 @@ names(un.lst) <- nmes
 units(stock) <- un.lst
 
 
-save(stock,file="output/xxx_27_46a7d3a_FLStock_object_model_estimates.Rdata")
+save(stock,file=file.path("output", paste0(file_code, "_FLStock_object_model_estimates.Rdata")))
 
 # ====================================================================
 # make stock data object 
@@ -48,8 +55,8 @@ stock.data@stock[] <- NA
 stock.data@harvest[] <- NA
 
 # desc
-stock.dat@desc <- "xxx.27.46a7d3a - FLStock created from input data. catches = observations"
-stock.data@name <- "xx.27.46a7d3a"
+stock.data@desc <- paste(stock_code, "- FLStock created from input data. catches = observations")
+stock.data@name <- stock_code
 
 # set units
 nmes <- names(units(stock.data))
@@ -60,5 +67,5 @@ units(stock.data) <- un.lst
 # check range
 range(stock.data)
 
-save(stock.data,file="output/xxx_27_46a7d3a_FLStock_object_input_data.Rdata")
+save(stock.data,file=file.path("output", paste0(file_code, "_FLStock_object_input_data.Rdata")))
 

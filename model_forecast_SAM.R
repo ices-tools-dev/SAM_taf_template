@@ -10,13 +10,13 @@
 
 # Before:
 #   model/assessment/fit.rds
-#   boot/data/reference_points/refpts.RData
-#   boot/data/other/TAC.RData
+#   boot/data/reference_points.csv
+#   boot/data/tac.csv
 # After:
 #   model/forecast/forecast.RData
 #   model/forecast/forecast_F_range.RData
 
-library(icesTAF)
+library(TAF)
 library(stockassessment)
 
 ## housekeeping
@@ -34,20 +34,22 @@ base.yr <- as.character(base.yr)
 advice.yr <- as.character(advice.yr)
 
 # laod reference points and TAC
-refpts_path <- "boot/data/reference_points/refpts.RData" ## path to the reference points
-TAC_path <- "boot/data/other/TAC.RData" ## path to historic TACs
+refpts_path <- taf.data.path("reference_points.csv") ## path to the reference points
+TAC_path <- taf.data.path("tac.csv") ## path to historic TACs
 
 if (file.exists(refpts_path)) {
-  load(file = refpts_path)
+  refpts <- read.taf(refpts_path)
+  for (rp in names(refpts)) assign(rp, refpts[[rp]])
 } else {
-  ## Reference points input values
-  # Fmsy = ; Fmsy_lw = ; Fmsy_up = ; Fpa = ; Flim = ; Blim = ; MSYBtrigger = ; Bpa =
+  ## Reference points input values (PLACEHOLDERS, replace with the stock's)
+  Fmsy <- 0.30; Fmsy_lw <- 0.20; Fmsy_up <- 0.40; Fpa <- 0.45; Flim <- 0.60
+  Blim <- 9000; MSYBtrigger <- 12500; Bpa <- 12500
 }
 if (file.exists(TAC_path)) {
-  load(file = TAC_path) ## named vector [years] with TAC values
-  TAC <- TAC[as.character(int.yr)]
+  TAC <- read.taf(TAC_path) ## TAC by Year
+  TAC <- TAC$TAC[TAC$Year == int.yr]
 } else {
-  # TAC =
+  TAC <- 3000 # PLACEHOLDER, TAC of the intermediate year
 }
 
 # define intermediate year Fsq assumption; adjust accordingly
@@ -174,7 +176,7 @@ if (F_MSY_lw_approach != Fmsy_lw) {
   forecast_args$label <- "Fmsy_lower"
   ls.forecast[["Fmsy_lower"]] <- do_forecast(forecast_args)
 } else {
-  ls.forecast[["MSY_approach_lw"]] <- ls.forecast[["Fmsy_lower"]]
+  ls.forecast[["Fmsy_lower"]] <- ls.forecast[["MSY_approach_lw"]]
 }
 
 
@@ -194,13 +196,13 @@ ssb_fzero <- attributes(ls.forecast[["F=0"]])$shorttab[grepl("ssb", rownames(att
 
 # Fpa
 forecast_args <- forecast_args_baseline
-forecast_args$fval[advice.yr] <- Fmsy_up
+forecast_args$fval[advice.yr] <- Fpa
 forecast_args$label <- "Fpa"
 ls.forecast[["Fpa"]] <- do_forecast(forecast_args)
 
 # Flim
 forecast_args <- forecast_args_baseline
-forecast_args$fval[advice.yr] <- Fmsy_up
+forecast_args$fval[advice.yr] <- Flim
 forecast_args$label <- "Flim"
 ls.forecast[["Flim"]] <- do_forecast(forecast_args)
 
@@ -248,6 +250,7 @@ ls.forecast_F_range <- lapply(F_range, function(x) {
   forecast_args <- forecast_args_baseline
   forecast_args$savesim <- F
   forecast_args$fval[advice.yr] <- x
+  forecast_args$label <- paste0("F=", x)
   do_forecast(forecast_args)
 })
 

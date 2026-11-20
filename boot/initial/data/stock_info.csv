@@ -1,0 +1,2 @@
+StockCode,AssessmentYear,ContactPerson,StockCategory,ModelType,ModelName,Purpose,CatchesLandingsUnits,RecruitmentUnits,StockSizeUnits,ConfidenceIntervalDefinition
+ple.27.7d,2026,assessor@example.org,1,A,SAM,Advice,t,NE3,t,95%
