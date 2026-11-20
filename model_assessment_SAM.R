@@ -10,10 +10,11 @@
 # Run SAM, write model results
 
 # Before: data/data.stock.rds
-# After: model/assessment/fit.rds
+# After: model/assessment/fit.rds, retro_fit.rds, leaveoneout.rds,
+#        residuals.rds, procres.rds
 
-library(icesTAF)
-library(stockassessment)
+library(TAF)
+taf.library(stockassessment)
 
 mkdir("model/assessment")
 
@@ -22,7 +23,7 @@ mkdir("model/assessment")
 # ====================================================================
 
 data <- readRDS("data/data.stock.rds") # ouput from stockassessment::setup.sam.data()
-#cfg_path <- "boot/data/sam_config/model.cfg" # path to the cfg file
+cfg_path <- taf.data.path("sam_config", "model.cfg") # path to the cfg file
 
 # ====================================================================
 # Model configuration
@@ -83,4 +84,24 @@ fit$opt$message # "relative convergence (4)"
 
 saveRDS(fit, file = "model/assessment/fit.rds")
 
-#saveRDS(RETRO,file="model/assessment/retro_fit.rds")
+# ====================================================================
+# Diagnostics
+# ====================================================================
+
+RETRO <- retro(fit, year = 5)
+LO <- leaveout(fit)
+RES <- residuals(fit)
+RESP <- procres(fit)
+
+saveRDS(RETRO, file = "model/assessment/retro_fit.rds")
+saveRDS(LO, file = "model/assessment/leaveoneout.rds")
+saveRDS(RES, file = "model/assessment/residuals.rds")
+saveRDS(RESP, file = "model/assessment/procres.rds")
+
+# Jitter: refit from jittered starting values to check convergence. Slow, so
+# off by default
+run_jitter <- FALSE
+if (run_jitter) {
+  JIT <- jit(fit, nojit = 20)
+  saveRDS(JIT, file = "model/assessment/jitter.rds")
+}

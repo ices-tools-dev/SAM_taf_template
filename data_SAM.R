@@ -1,164 +1,124 @@
-# ====================================================================
-# Prepare intercatch data for SAM assessment
-# Authors: participants of workshop on the validation of new tool for refpts
-#     Sofie Nimmegeers (ILVO) <sofie.nimmegeers@ilvo.vlaanderen.be>
-#     Colin Millar (ICES) <colin.millar@ices.dk>
-#
-# Distributed under the terms of the MIT
-# ====================================================================
+# Read the Lowestoft files, set up the SAM data, write TAF data tables
 
-# Prepare data, write CSV data tables
+# Before: sam_data/*.dat or *.txt (boot/data)
+# After:  catage.csv, wcatch.csv, wdiscards.csv, wlandings.csv, landfrac.csv,
+#         wstock.csv, maturity.csv, natmort.csv, propf.csv, propm.csv,
+#         survey_<name>.csv, data.stock.rds (data)
 
-# Before:
-#    boot/data/intercatch/dn.txt
-#    boot/data/intercatch/dw.txt
-#    boot/data/intercatch/la.txt
-#    boot/data/intercatch/ln.txt
-#    boot/data/intercatch/lw.txt
-#    boot/data/intercatch/mo.txt
-#    boot/data/intercatch/nm.txt
-#    boot/data/intercatch/pf.txt
-#    boot/data/intercatch/pm.txt
-#    boot/data/intercatch/sw.txt
-#    boot/data/intercatch/tun.txt
-# After:
-#   data/data.stock.rds
+library(TAF)
+taf.library(stockassessment)
 
-# load libraries
-library(icesTAF)
-library(tools)
-library(stockassessment)
-
-# make output directory
 mkdir("data")
 
-# ====================================================================
-# SETUP
-# ====================================================================
+# Two sets of Lowestoft files are accepted, as .dat or .txt:
+# - the files SAM reads directly: cn, cw, dw, lw, lf, sw, mo, nm, pf, pm,
+#   survey
+# - landings and discards separately: ln, lw, la, dn, dw, sw, mo, nm, pf, pm,
+#   tun. Landings numbers are SOP corrected and ages above plus_group are
+#   added into the plus group.
+plus_group <- 10
 
-# Define MIN and MAX age
-min_age <- 1
-max_age <- 15
-plusgroup <- 10
+files <- dir(taf.data.path("sam_data"), pattern = "\\.(dat|txt)$",
+             full.names = TRUE, ignore.case = TRUE)
+names(files) <- tolower(sub("\\.[^.]*$", "", basename(files)))
 
-# column names vectors
-ages <- as.character(min_age:plus_group)
-plusages <- as.character(plus_group:max_age)
+survey_file <- intersect(c("survey", "tun"), names(files))[1]
+if (is.na(survey_file)) stop("no survey or tun file in boot/data/sam_data")
+surveys <- read.ices(files[[survey_file]])
+names(surveys) <- trimws(names(surveys))
 
-# ====================================================================
-# Read in data
-# ====================================================================
+# read.ices cannot read files with a single age column, such as la
+read_lowestoft <- function(file) {
+  head <- scan(file, skip = 2, n = 4, quiet = TRUE)
+  if (head[3] != head[4]) return(read.ices(file))
+  years <- head[1]:head[2]
+  x <- scan(file, skip = 5, n = length(years), quiet = TRUE)
+  matrix(x, ncol = 1, dimnames = list(years, head[3]))
+}
+stock <- lapply(files[setdiff(names(files), survey_file)], read_lowestoft)
 
-# load data - really we just want to skip survey.dat/txt or tun.txt
-file_names <-
-  list.files(
-    "boot/data/intercatch",
-    pattern = "^[A-Za-z]{2}\\.(dat|txt)$",
-    full.names = TRUE
-  ) |> tolower()
-names(file_names) <- file_path_sans_ext(basename(file_names))
+if ("cn" %in% names(stock)) {
+  needed <- c("cn", "cw", "dw", "lw", "lf", "sw", "mo", "nm", "pf", "pm")
+  missing <- setdiff(needed, names(stock))
+  if (length(missing) > 0) stop("missing files: ", toString(missing))
+  sam_input <- stock[needed]
+} else {
+  needed <- c("ln", "lw", "la", "dn", "dw", "sw", "mo", "nm", "pf", "pm")
+  missing <- setdiff(needed, names(stock))
+  if (length(missing) > 0) stop("missing files: ", toString(missing))
 
-stock_data <- lapply(file_names, read.ices)
+  sop <- rowSums(stock$ln * stock$lw) / stock$la[, 1]
+  stock$ln <- sweep(stock$ln, 1, sop, "/")
 
-# Get the tuning fleets
-survey_data <- read.ices("boot/data/intercatch/tun.txt")
+  all_ages <- as.numeric(colnames(stock$ln))
+  # Data that stop below plus_group already end in a plus group
+  plus_group <- min(plus_group, max(all_ages))
+  ages <- as.character(all_ages[all_ages <= plus_group])
+  above <- as.character(all_ages[all_ages >= plus_group])
+  pg <- as.character(plus_group)
 
-# ====================================================================
-# SOP correction
-# ====================================================================
+  plus_n <- function(n) {
+    x <- n[, ages, drop = FALSE]
+    x[, pg] <- rowSums(n[, above, drop = FALSE])
+    x
+  }
+  plus_w <- function(w, n) {
+    x <- w[, ages, drop = FALSE]
+    total <- rowSums(n[, above, drop = FALSE])
+    # With no fish in the plus group, keep the weight given for that age
+    x[, pg] <- ifelse(total == 0, w[, pg],
+                      rowSums(w[, above, drop = FALSE] *
+                              n[, above, drop = FALSE]) / total)
+    x
+  }
 
-if (exists("stock_data_dis")) {
-  # DISCARDS - Calculate SOP factor and sopcorrect
-  subdis <- stock_data$dn * stock_data$dw
-  subdis2 <- rowSums(subdis)
-  sopdis <- subdis2 / stock_data_dis$di[, 1] # gives SOP factor per year
-  stock_data$dn <- sweep(stock_data$dn, 1, sopdis, "/") # sop correct the numbers at age
-
-  subdis <- (stock_data$dn * stock_data$dw)
-  subdis2 <- rowSums(subdis)
-  test <- subdis2 / stock_data_dis$di[, 1]
+  ln <- plus_n(stock$ln)
+  dn <- plus_n(stock$dn)
+  lw <- plus_w(stock$lw, stock$ln)
+  dw <- plus_w(stock$dw, stock$dn)
+  cn <- ln + dn
+  sam_input <- list(
+    cn = cn,
+    cw = ifelse(cn == 0, 0, (lw * ln + dw * dn) / cn),
+    dw = dw,
+    lw = lw,
+    lf = ifelse(cn == 0, 0, ln / cn),
+    sw = plus_w(stock$sw, stock$ln + stock$dn),
+    mo = stock$mo[, ages, drop = FALSE],
+    nm = stock$nm[, ages, drop = FALSE],
+    pf = stock$pf[, ages, drop = FALSE],
+    pm = stock$pm[, ages, drop = FALSE]
+  )
+  sam_input$cw[is.na(sam_input$cw)] <- 0
+  sam_input$lf[is.na(sam_input$lf)] <- 0
 }
 
-# LANDINGS - Calculate SOP factor and sopcorrect
-sublan <- stock_data$ln*stock_data$lw
-sublan2 <- rowSums(sublan)
-soplan <- sublan2/stock_data$la[,1]            #gives SOP factor per year
-stock_data$ln <- sweep(stock_data$ln,1,soplan,"/")        #sop correct the numbers at age
+sam_data <- setup.sam.data(
+  surveys = surveys,
+  residual.fleet = sam_input$cn,
+  prop.mature = sam_input$mo,
+  stock.mean.weight = sam_input$sw,
+  catch.mean.weight = sam_input$cw,
+  dis.mean.weight = sam_input$dw,
+  land.mean.weight = sam_input$lw,
+  prop.f = sam_input$pf,
+  prop.m = sam_input$pm,
+  natural.mortality = sam_input$nm,
+  land.frac = sam_input$lf
+)
 
-sublan <- (stock_data$ln*stock_data$lw)
-sublan2 <- rowSums(sublan)
-test <- sublan2/stock_data$la[,1]
-
-# ====================================================================
-# Prepare catch data for SAM
-# ====================================================================
-
-# Function to calculate weighted average for plus group
-plusgroup_weight <- function(weights, numbers) {
-  total_numbers <- rowSums(numbers, na.rm = TRUE)
-  total_weight <- rowSums(weights * numbers, na.rm = TRUE)
-  ifelse(total_numbers == 0, 0, total_weight / total_numbers)
+tables <- list(
+  catage = sam_input$cn, wcatch = sam_input$cw, wdiscards = sam_input$dw,
+  wlandings = sam_input$lw, landfrac = sam_input$lf, wstock = sam_input$sw,
+  maturity = sam_input$mo, natmort = sam_input$nm, propf = sam_input$pf,
+  propm = sam_input$pm
+)
+for (s in names(surveys)) {
+  name <- paste0("survey_", gsub("[^a-z0-9]+", "_", tolower(s)))
+  tables[[name]] <- surveys[[s]]
 }
-
-# discards
-dn              <- stock_data$dn[, ages]
-dn[, plusgroup] <- rowSums(stock_data$dn[, plusages])
-dw              <- stock_data$dw[, ages]
-dw[, plusgroup] <- plusgroup_weight(stock_data$dw[,plusages], stock_data$dn[,plusages])
-
-# landings
-ln              <- stock_data$ln[, ages]
-ln[, plusgroup] <- rowSums(stock_data$ln[,plusages])
-lw              <- stock_data$lw[, ages]
-lw[, plusgroup] <- plusgroup_weight(stock_data$lw[, plusages], stock_data$ln[, plusages])
-
-# don't need to redo plus group calcs for total catch
-cn <-  ln + dn
-cw <- (dw*dn + lw*ln) / (dn + ln)
-
-# stock weights
-sw              <- stock_data$sw[, ages]
-sw[, plusgroup] <-
-  plusgroup_weight(
-    stock_data$sw[, plusages],
-    stock_data$dn[, plusages] + stock_data$ln[, plusages]
-  )
-
-# maturity, natural mortality
-mo <- stock_data$mo[, ages]
-nm <- stock_data$nm[, ages]
-# prop fished by spawning, proportion naturally dead by spawning
-pf <- stock_data$pf[, ages]
-pm <- stock_data$pm[, ages]
-
-# Calculate the landing proportion
-lf <- ifelse(cn == 0, 0,  ln / cn)
-lf[is.na( lf)] <- 0 # SAM does not handle NA's -> set to zero
-
-# ====================================================================
-# Prepare data object for SAM
-# ====================================================================
-
-data.stock <-
-  setup.sam.data(
-    surveys = survey_data,          # tuning fleets
-    residual.fleet = cn,    # catch numbers-at-age
-    prop.mature = mo,       # maturity ogive
-    stock.mean.weight = sw, # stock weights
-    catch.mean.weight = cw, # catch weights
-    dis.mean.weight = dw,   # discard weights
-    land.mean.weight = lw,  # landing weights
-    prop.f = pf,            # proportion fished before spawning
-    prop.m = pm,            # proportion natural mortality before spawning
-    natural.mortality = nm, # natural mortality
-    land.frac = lf          # landing proportion
-  )
-
-# Save the SAM data object
-saveRDS(data.stock, file = "data/data.stock.rds")
-
-# ====================================================================
-# Write out files for report
-# ====================================================================
-
-# have to decide on a consistent way to do this
+for (name in names(tables)) {
+  write.taf(xtab2taf(tables[[name]]), file = paste0(name, ".csv"),
+            dir = "data")
+}
+saveRDS(sam_data, "data/data.stock.rds")

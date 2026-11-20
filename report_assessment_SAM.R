@@ -2,30 +2,28 @@
 
 ## Before: sam fit object in model/assessment
 ## After: csv tables of assessment output in report/assessment
-
-rm(list=ls())
+##        Additional plots and tables, as made in the SAM assessments in
+##        ices-taf, use data/*.csv
 
 # Libraries
 library(TAF)
-library(stockassessment)
+taf.library(stockassessment)
 
 # Directories
 mkdir("report/assessment")
 
 # load fit
-load("model/assessment/fit.rds", verbose = TRUE)
+fit <- readRDS("model/assessment/fit.rds")
 
 # load retro
-load("model/assessment/retro_fit.rds", verbose = TRUE)
+RETRO <- readRDS("model/assessment/retro_fit.rds")
 
 # leave one out runs
-load("model/assessment/leaveoneout.RData")
+LO <- readRDS("model/assessment/leaveoneout.rds")
 
 # load residuals
-load("model/assessment/residuals.RData")
-
-#load data
-load("model/assessment/data.RData")
+RES <- readRDS("model/assessment/residuals.rds")
+RESP <- readRDS("model/assessment/procres.rds")
 
 #define colours
 colours<- palette.colors(palette="Okabe_Ito")
@@ -143,14 +141,14 @@ dev.off()
 # plot recruits/SSB
 
 ssb<-summary(fit)[,"SSB"]
-rec<-ntable(fit)[,"0"]
+rec<-ntable(fit)[,1]
 taf.png("report/assessment/Rec_per_SSB.png")
 plot(fit$data$years,log(rec/ssb),type='b',xlab="Year",ylab="ln(Recruits/SSB) ",cex.lab=1.5)
 dev.off()
 
 
 # Selectivity of the Fishery
-taf.png("Fig_Fishselectivity")
+taf.png("report/assessment/Fig_Fishselectivity")
 sel <- t(faytable(fit)/fbartable(fit)[,1])
 sel[is.na(sel)]<-0
 op <- par(mfrow=c(3,3), mai=c(0.4,0.4,0.3,0.3), oma=c(3,3,0,0))
@@ -168,7 +166,7 @@ mtext("F/Fbar", 2, outer=T, line=1)
 dev.off()
 
 
-taf.png("Fig_partial_F")
+taf.png("report/assessment/Fig_partial_F")
 F<-faytable(fit)
 matplot(rownames(F),F,lty=1:ncol(F),col=colours[1:ncol(F)], type='l', xlab='Year', lwd=3)
 legend('topright', col=colours[1:ncol(F)], lty=1:ncol(F), legend=colnames(F), bty='n', lwd=3)
@@ -210,4 +208,130 @@ ptab[,-1]<-round(ptab[,-1],3)
 colnames(ptab)[1]<-" "
 write.taf(ptab,"SAM_model_parameters.csv",dir="report/assessment")
 
+###########################################################################################################
+# Additional plots and tables, as made in the SAM assessments in ices-taf
 
+age_colours <- function(n) rep_len(colours, n)
+
+plot_at_age <- function(name, x, ylab) {
+  n <- ncol(x) - 1
+  taf.png(file.path("report/assessment", name))
+  par(mfrow = c(1, 1), mar = c(4, 4, 1, 1))
+  matplot(x$Year, x[-1], type = "l", lty = "solid", lwd = 2,
+          col = age_colours(n), xlab = "Year", bty = "l", ylab = ylab)
+  legend("topleft", legend = names(x)[-1], lwd = 2, lty = 1, bty = "n",
+         ncol = 3, col = age_colours(n))
+  dev.off()
+}
+
+# Catch numbers at age, bubble size proportional to catch
+catage <- read.taf("data/catage.csv")
+cn <- as.matrix(catage[-1])
+taf.png("report/assessment/input_catage")
+par(mfrow = c(1, 1), mar = c(4, 4, 1, 1))
+symbols(rep(catage$Year, ncol(cn)), rep(as.numeric(colnames(cn)), each = nrow(cn)),
+        circles = sqrt(as.vector(cn) / max(cn, na.rm = TRUE)), inches = 0.12,
+        bg = adjustcolor(colours[7], 0.5), fg = colours[7],
+        xlab = "Year", ylab = "Age", bty = "l")
+dev.off()
+
+# Catch, landing and discard weights at age
+plot_at_age("input_catchweights", read.taf("data/wcatch.csv"), "Catch weights (kg)")
+plot_at_age("input_landingweights", read.taf("data/wlandings.csv"), "Landing weights (kg)")
+plot_at_age("input_discardweights", read.taf("data/wdiscards.csv"), "Discard weights (kg)")
+
+# Proportion discarded at age, by year and as a distribution by age
+landfrac <- read.taf("data/landfrac.csv")
+propdis <- landfrac
+propdis[-1] <- ifelse(cn > 0, 1 - as.matrix(landfrac[-1]), NA)
+plot_at_age("input_propdiscarded", propdis, "Proportion discarded")
+taf.png("report/assessment/input_propdiscarded_age")
+par(mfrow = c(1, 1), mar = c(4, 4, 1, 1))
+boxplot(propdis[-1], xlab = "Age", ylab = "Proportion discarded", bty = "l",
+        col = adjustcolor(colours[3], 0.5))
+dev.off()
+
+# Survey indices by year, by cohort, and internal consistency between ages
+for (file in dir("data", pattern = "^survey_.*\\.csv$")) {
+  survey <- read.taf(file.path("data", file))
+  name <- sub("\\.csv$", "", file)
+  idx <- as.matrix(survey[-1])
+  idx[idx <= 0] <- NA
+  ages <- as.numeric(colnames(idx))
+
+  plot_at_age(paste0(name, "_year"), cbind(survey[1], log(idx)), "log(index)")
+
+  taf.png(file.path("report/assessment", paste0(name, "_cohort")))
+  par(mfrow = c(1, 1), mar = c(4, 4, 1, 1))
+  cohort <- outer(survey$Year, ages, "-")
+  plot(range(cohort), range(log(idx), na.rm = TRUE), type = "n",
+       xlab = "Cohort", ylab = "log(index)", bty = "l")
+  for (a in seq_along(ages)) {
+    lines(cohort[, a], log(idx[, a]), lwd = 2, col = age_colours(length(ages))[a])
+  }
+  legend("topleft", legend = ages, lwd = 2, lty = 1, bty = "n", ncol = 3,
+         col = age_colours(length(ages)))
+  dev.off()
+
+  if (length(ages) > 1) {
+    by_cohort <- tapply(log(as.vector(idx)),
+                        list(as.vector(cohort), rep(ages, each = nrow(idx))),
+                        mean)
+    taf.png(file.path("report/assessment", paste0(name, "_consistency")))
+    pairs(by_cohort, labels = paste("Age", ages), gap = 0.3,
+          panel = function(x, y) {
+            points(x, y, pch = 16, col = adjustcolor(colours[6], 0.6))
+            ok <- is.finite(x) & is.finite(y)
+            if (sum(ok) > 2) abline(lm(y[ok] ~ x[ok]), col = colours[7], lwd = 2)
+          })
+    dev.off()
+  }
+}
+
+# Data availability
+taf.png("report/assessment/dataplot")
+dataplot(fit)
+dev.off()
+
+# Observation correlation
+taf.png("report/assessment/corplot")
+corplot(fit)
+dev.off()
+
+# Survey catchability at age
+taf.png("report/assessment/catchability")
+qtableplot(qtable(fit))
+dev.off()
+
+# Stock numbers at age
+taf.png("report/assessment/natage", width = 2200, height = 1500)
+par(mfrow = c(1, 1), mar = c(4, 4, 1, 1))
+barplot(t(ntable(fit)), xlab = "Year", ylab = "Stock numbers at age", space = 0,
+        legend = TRUE, col = age_colours(ncol(ntable(fit))),
+        args.legend = list(x = "topleft", bty = "n", ncol = 3))
+dev.off()
+
+# Jitter, when run in model_assessment_SAM.R
+if (file.exists("model/assessment/jitter.rds")) {
+  taf.png("report/assessment/jitter")
+  plot(readRDS("model/assessment/jitter.rds"))
+  dev.off()
+}
+
+# Model table and catchability
+write.taf(read.taf("output/assessment/modtab.csv"), "SAM_modeltable.csv",
+          dir = "report/assessment")
+qtab <- read.taf("output/assessment/qtab.csv")
+qtab[-1] <- round(qtab[-1], 3)
+write.taf(qtab, "SAM_catchability.csv", dir = "report/assessment")
+
+# Summary as in the advice sheets: Fbar rounded with icesRound
+smry <- tabsummary
+smry_adv <- data.frame(Year = rownames(smry),
+                       Recruitment = round(smry$R),
+                       SSB = round(smry$SSB),
+                       Fbar = icesAdvice::icesRound(smry$Fbar))
+smry_adv <- merge(smry_adv,
+                  data.frame(Year = rownames(catab), Catch = catab[, "Catch"]),
+                  all.x = TRUE)
+write.taf(smry_adv, "Summary_SAM_advice.csv", dir = "report/assessment")
