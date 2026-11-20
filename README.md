@@ -15,12 +15,12 @@ reproducibility.
 
 ``` mermaid
 flowchart TD
-  A[("boot/initial/data<br/>Lowestoft files, model.cfg,<br/>reference points, TAC, stock info")]
-  B[("boot/data")]
-  C[("data<br/>input tables, SAM data")]
-  D[("model<br/>SAM fit, retrospective,<br/>leave-one-out, residuals, forecast")]
-  E[("output<br/>result and forecast tables,<br/>FLStock, SAG upload file")]
-  F[("report<br/>plots, rounded tables")]
+  A[("<b>boot/initial/data</b><br/>Lowestoft files, model.cfg,<br/>reference points, TAC, stock info")]
+  B[("<b>boot/data</b>")]
+  C[("<b>data</b><br/>input tables, SAM data")]
+  D[("<b>model</b><br/>SAM fit, retrospective,<br/>leave-one-out, residuals, forecast")]
+  E[("<b>output</b><br/>result and forecast tables,<br/>FLStock, SAG upload file")]
+  F[("<b>report</b><br/>plots, rounded tables")]
   P0("taf.boot()")
   P1("data.R")
   P2("model.R")
@@ -44,9 +44,9 @@ flowchart TD
   class F report
 ```
 
-Cylinders are data, rounded boxes are the steps that read and write
-them. Solid arrows: the main flow. Dashed arrows: a step also reads an
-earlier folder. Data only flow forwards.
+Cylinders are data (folder names in bold), rounded boxes are the steps
+that read and write them. Solid arrows: the main flow. Dashed arrows: a
+step also reads an earlier folder. Data only flow forwards.
 
 ## Running
 
@@ -82,8 +82,10 @@ Each step runs its own scripts (rounded boxes), which read data
 
 ``` mermaid
 flowchart TD
-  A[("boot/data/sam_data<br/>Lowestoft files")] --> S("data_SAM.R")
-  S --> B[("data<br/>catage, wcatch, wdiscards, wlandings, landfrac,<br/>wstock, maturity, natmort, propf, propm,<br/>survey_* (csv); data.stock.rds")]
+  A[("<b>boot/data/sam_data</b><br/>Lowestoft files")]
+  S("data_SAM.R")
+  B[("<b>data</b><br/>catage, wcatch, wdiscards, wlandings, landfrac,<br/>wstock, maturity, natmort, propf, propm,<br/>survey_* (csv); data.stock.rds")]
+  A --> S --> B
   classDef boot fill:#cfd6e0,stroke:#8a96a8,color:#1f2933
   classDef data fill:#bcd4f0,stroke:#6f95c4,color:#1f2933
   classDef model fill:#b6e0d6,stroke:#5fa596,color:#1f2933
@@ -97,19 +99,26 @@ flowchart TD
 
 ``` mermaid
 flowchart TD
-  A[("data/data.stock.rds")] --> S1("model_assessment_SAM.R")
-  C[("boot/data/sam_config/model.cfg")] --> S1
-  S1 --> M1[("model/assessment<br/>fit, retro_fit, leaveoneout,<br/>residuals, procres (jitter)")]
-  M1 --> S2("model_forecast_SAM.R")
-  R[("boot/data<br/>reference_points.csv, tac.csv")] --> S2
-  S2 --> M2[("model/forecast<br/>forecast, forecast_F_range")]
+  C[("<b>boot/data/sam_config/</b>model.cfg")]
+  A[("<b>data/</b>data.stock.rds")]
+  S1("model_assessment_SAM.R")
+  R[("<b>boot/data</b><br/>reference_points.csv, tac.csv")]
+  M1[("<b>model/assessment</b><br/>fit, retro_fit, leaveoneout,<br/>residuals, procres (jitter)")]
+  S2("model_forecast_SAM.R")
+  M2[("<b>model/forecast</b><br/>forecast, forecast_F_range")]
+  C --> S1
+  A --> S1
+  S1 --> M1
+  R --> S2
+  M1 --> S2
+  S2 --> M2
   classDef boot fill:#cfd6e0,stroke:#8a96a8,color:#1f2933
   classDef data fill:#bcd4f0,stroke:#6f95c4,color:#1f2933
   classDef model fill:#b6e0d6,stroke:#5fa596,color:#1f2933
   classDef output fill:#c8e6b5,stroke:#7cad62,color:#1f2933
   classDef report fill:#f3d9a6,stroke:#c9a35a,color:#1f2933
-  class A data
   class C,R boot
+  class A data
   class M1,M2 model
 ```
 
@@ -117,45 +126,62 @@ flowchart TD
 
 ``` mermaid
 flowchart TD
-  M1[("model/assessment")] --> S1("output_assessment_SAM.R")
-  S1 --> O1[("output/assessment<br/>tab_summary, fatage, natage, partab,<br/>mohns_rho, modtab, qtab, qtab_sd")]
-  M2[("model/forecast")] --> S2("output_forecast_SAM.R")
-  S2 --> O2[("output/forecast<br/>catch option tables,<br/>ssb_blim_prob, Large_F_range_forecast")]
-  M1 --> S3("output_FLStock_SAM.R")
-  S3 --> O3[("output<br/>FLStock objects")]
-  M1 --> S4("output_SAG_SAM.R")
-  M2 --> S4
-  D[("data<br/>catch tables")] --> S4
-  B[("boot/data<br/>stock_info.csv, reference_points.csv")] --> S2
+  B[("<b>boot/data</b><br/>stock_info.csv, reference_points.csv")]
+  D[("<b>data</b><br/>catch tables")]
+  M1[("<b>model/assessment</b>")]
+  M2[("<b>model/forecast</b>")]
+  S1("output_assessment_SAM.R")
+  S2("output_forecast_SAM.R")
+  S3("output_FLStock_SAM.R")
+  S4("output_SAG_SAM.R")
+  O1[("<b>output/assessment</b><br/>tab_summary, fatage, natage, partab,<br/>mohns_rho, modtab, qtab, qtab_sd")]
+  O2[("<b>output/forecast</b><br/>tab_fc_*, catch_options,<br/>ssb_blim_prob, Large_F_range_forecast")]
+  O3[("<b>output</b><br/>FLStock objects")]
+  O4[("<b>output/sag</b><br/>SAG upload file")]
+  M1 --> S1 --> O1
+  B --> S2
+  M2 --> S2 --> O2
   B --> S3
+  M1 --> S3 --> O3
   B --> S4
-  S4 --> O4[("output/sag<br/>SAG upload file")]
+  D --> S4
+  M1 --> S4
+  M2 --> S4 --> O4
   classDef boot fill:#cfd6e0,stroke:#8a96a8,color:#1f2933
   classDef data fill:#bcd4f0,stroke:#6f95c4,color:#1f2933
   classDef model fill:#b6e0d6,stroke:#5fa596,color:#1f2933
   classDef output fill:#c8e6b5,stroke:#7cad62,color:#1f2933
   classDef report fill:#f3d9a6,stroke:#c9a35a,color:#1f2933
+  class B boot
+  class D data
   class M1,M2 model
   class O1,O2,O3,O4 output
-  class D data
-  class B boot
 ```
 
 ### report.R
 
 ``` mermaid
 flowchart TD
-  M1[("model/assessment")] --> S("report_assessment_SAM.R")
-  O1[("output/assessment")] --> S
-  D[("data")] --> S
-  S --> R[("report/assessment<br/>input, summary, diagnostic and survey plots;<br/>rounded tables")]
+  D[("<b>data</b>")]
+  M1[("<b>model/assessment</b>")]
+  O1[("<b>output/assessment</b>")]
+  O2[("<b>output/forecast</b>")]
+  S("report_assessment_SAM.R")
+  S2("report_forecast_SAM.R")
+  R[("<b>report/assessment</b><br/>input, summary, diagnostic and survey plots;<br/>rounded tables")]
+  R2[("<b>report/forecast</b><br/>rounded catch options,<br/>catch over the F range")]
+  D --> S
+  M1 --> S
+  O1 --> S
+  S --> R
+  O2 --> S2 --> R2
   classDef boot fill:#cfd6e0,stroke:#8a96a8,color:#1f2933
   classDef data fill:#bcd4f0,stroke:#6f95c4,color:#1f2933
   classDef model fill:#b6e0d6,stroke:#5fa596,color:#1f2933
   classDef output fill:#c8e6b5,stroke:#7cad62,color:#1f2933
   classDef report fill:#f3d9a6,stroke:#c9a35a,color:#1f2933
-  class M1 model
-  class O1 output
   class D data
-  class R report
+  class M1 model
+  class O1,O2 output
+  class R,R2 report
 ```

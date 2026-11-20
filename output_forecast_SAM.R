@@ -1,7 +1,9 @@
 ## Extract results of interest, write TAF output tables
 
-## Before: SAM forecast object in model/forecast
-## After: forecast results in .txt files in output/forecast
+## Before: model/forecast/forecast.RData, forecast_F_range.RData,
+##         model/assessment/fit.rds, boot/data/reference_points.csv, tac.csv
+## After: output/forecast: tab_fc_<scenario>.csv, tab_forecasts.txt,
+##        ssb_blim_prob.csv, catch_options.csv, Large_F_range_forecast.csv
 
 # Libraries
 library(TAF)
@@ -42,7 +44,8 @@ writeLines("", con = "output/forecast/tab_forecasts.txt", sep = "\t")
 for(i in seq(FC)){
   f <- FC[[i]]
   fc_tab <- attr(f, "tab")
-  fc_lab <- attr(f, "label")
+  # File names from the scenario names: a reused scenario keeps its label
+  fc_lab <- names(FC)[i]
   tmp <- as.data.frame(fc_tab)
   tmp <- cbind(data.frame("scenario" = fc_lab), tmp)
   tmp <- xtab2taf(tmp)
@@ -95,6 +98,38 @@ ssb_blim_prob <- ssb_blim_prob[,c("scenario","year","prob")]
 write.taf(c("ssb_blim_prob"), dir = "output/forecast", row.names = FALSE, quote=TRUE)
 
 #==================================================================
+# Catch options table, as in the advice sheet
+#==================================================================
+
+TAC_path <- taf.data.path("tac.csv")
+TAC <- if (file.exists(TAC_path)) read.taf(TAC_path) else
+  data.frame(Year = assess.yr, TAC = 3000) # PLACEHOLDER
+TAC <- TAC$TAC[TAC$Year == assess.yr]
+
+ay <- as.character(advice.yr)
+ay1 <- as.character(advice.yr + 1)
+catch_options <- do.call(rbind, lapply(names(FC), function(x) {
+  tab <- attr(FC[[x]], "tab")
+  prob <- ssb_blim_prob[ssb_blim_prob$scenario == x &
+                        ssb_blim_prob$year == advice.yr + 1, "prob"]
+  data.frame(scenario = x,
+             catch = tab[ay, "catch:median"],
+             landings = tab[ay, "Land:median"],
+             discards = tab[ay, "Discard:median"],
+             fbar = tab[ay, "fbar:median"],
+             ssb = tab[ay1, "ssb:median"],
+             ssb_change = 100 * (tab[ay1, "ssb:median"] / tab[ay, "ssb:median"] - 1),
+             tac_change = 100 * (tab[ay, "catch:median"] / TAC - 1),
+             prob_below_blim = prob)
+}))
+names(catch_options)[-1] <- c(paste0(c("catch_", "landings_", "discards_",
+                                       "fbar_"), advice.yr),
+                              paste0("ssb_", advice.yr + 1),
+                              "ssb_change_pct", "tac_change_pct",
+                              paste0("prob_ssb_below_blim_", advice.yr + 1))
+write.taf(catch_options, dir = "output/forecast")
+
+#==================================================================
 # Export forecast results for MAP with step 0.1:
 #==================================================================
 # Table to detail catch options for F=0 to F=Fmsy at 0.1 invervals.
@@ -121,5 +156,5 @@ resFmap <- do.call(rbind, res)
 
 row.names(resFmap) <- NULL
 
-write.csv(resFmap[resFmap$year %in% advice.yr, ],
+write.taf(resFmap[resFmap$year %in% advice.yr, ],
           file = file.path("output/forecast", "Large_F_range_forecast.csv"))
