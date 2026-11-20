@@ -14,7 +14,7 @@ flowchart TD
   B[("<b>boot/data</b>")]
   C[("<b>data</b><br/>input tables, SAM data")]
   D[("<b>model</b><br/>SAM fit, retrospective,<br/>leave-one-out, residuals, forecast")]
-  E[("<b>output</b><br/>result and forecast tables,<br/>FLStock, SAG upload file")]
+  E[("<b>output</b><br/>result and forecast tables,<br/>FLStock, SAG and ASD upload files")]
   F[("<b>report</b><br/>plots, rounded tables")]
   P0("taf.boot()")
   P1("data.R")
@@ -129,10 +129,12 @@ flowchart TD
   S2("output_forecast_SAM.R")
   S3("output_FLStock_SAM.R")
   S4("output_SAG_SAM.R")
+  S5("output_ASD_SAM.R")
   O1[("<b>output/assessment</b><br/>tab_summary, fatage, natage, partab,<br/>mohns_rho, modtab, qtab, qtab_sd")]
   O2[("<b>output/forecast</b><br/>tab_fc_*, catch_options,<br/>ssb_blim_prob, Large_F_range_forecast")]
   O3[("<b>output</b><br/>FLStock objects")]
   O4[("<b>output/sag</b><br/>SAG upload file")]
+  O5[("<b>output/asd</b><br/>ASD upload file")]
   M1 --> S1 --> O1
   B --> S2
   M2 --> S2 --> O2
@@ -142,6 +144,9 @@ flowchart TD
   D --> S4
   M1 --> S4
   M2 --> S4 --> O4
+  B --> S5
+  M1 --> S5
+  O2 --> S5 --> O5
   classDef boot fill:#cfd6e0,stroke:#8a96a8,color:#1f2933
   classDef data fill:#bcd4f0,stroke:#6f95c4,color:#1f2933
   classDef model fill:#b6e0d6,stroke:#5fa596,color:#1f2933
@@ -150,7 +155,7 @@ flowchart TD
   class B boot
   class D data
   class M1,M2 model
-  class O1,O2,O3,O4 output
+  class O1,O2,O3,O4,O5 output
 ```
 
 ### report.R
